@@ -21,6 +21,10 @@ Site: abrir o `portal-laboratorio/index.html` no navegador. Login de teste `admi
 
 A leitura automática do PDF só funciona no deploy da Vercel, local tem que preencher os valores na mão.
 
-## Testes
+## Como contribuir
 
-Os bugs que encontrei testando estão em [BUGS.md](BUGS.md).
+Leia o [CONTRIBUTING.md](CONTRIBUTING.md) antes de começar.
+
+## Problemas conhecidos
+
+A lista completa e priorizada está em [docs/AUDITORIA.md](docs/AUDITORIA.md). Os primeiros testes manuais estão em [BUGS.md](BUGS.md).
