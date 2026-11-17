@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedCloud - QR code</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="vendor/phosphor/regular-2.1.2.css">
+    <script src="vendor/qrcode-generator-2.0.4.js"></script>
+</head>
+
+<body>
+    <main class="card qr-pagina">
+        <h2>MedCloud</h2>
+        <p class="subtitle">Aponte a câmera do celular para abrir</p>
+
+        <div class="qr-grade">
+            <section class="qr-bloco">
+                <h3><i class="ph ph-globe"></i> Abrir o site</h3>
+                <canvas id="qrSite" class="qr-imagem" role="img" aria-label="QR code do endereço do site"></canvas>
+                <p id="textoSite" class="qr-endereco"></p>
+            </section>
+
+            <section class="qr-bloco">
+                <h3><i class="ph ph-android-logo"></i> Baixar o app (Android)</h3>
+                <canvas id="qrApp" class="qr-imagem" role="img" aria-label="QR code para baixar o aplicativo"></canvas>
+                <p class="qr-endereco">Aplicativo do paciente (APK)</p>
+            </section>
+        </div>
+
+        <div class="qr-acoes nao-imprimir">
+            <button type="button" id="btnImprimir"><i class="ph ph-printer"></i> Imprimir</button>
+            <a href="index.html" class="btn-outline"><i class="ph ph-arrow-left"></i> Voltar ao portal</a>
+        </div>
+    </main>
+
+    <script src="qrcode.js"></script>
+</body>
+
+</html>

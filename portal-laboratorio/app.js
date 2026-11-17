@@ -39,7 +39,10 @@ function showStatus(message, type = 'loading') {
         statusDiv.classList.add('status-loading');
     }
 
-    statusDiv.innerHTML = `${icon} <span>${message}</span>`;
+    statusDiv.innerHTML = icon + ' ';
+    const texto = document.createElement('span');
+    texto.textContent = message; // textContent: mensagem nunca é interpretada como HTML
+    statusDiv.appendChild(texto);
     statusDiv.style.display = 'block';
 }
 
@@ -70,7 +73,7 @@ window.fazerLogin = function () {
             window.alternarPaineis();
         }, 400);
     } else {
-        alert("Credenciais incorretas! (Dica: admin / 1234)");
+        alert("Usuário ou senha incorretos.");
     }
 }
 
@@ -111,6 +114,7 @@ window.alternarPaineis = function () {
     } else {
         document.getElementById('boxOutros').classList.add('active');
     }
+    window.cancelarConferencia();
 }
 
 // Atualização de nome do arquivo no input customizado
@@ -125,14 +129,200 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 fileNameDisplay.textContent = 'Clique para anexar PDF';
             }
+            window.cancelarConferencia();
         });
     }
     
+    // Botões (sem onclick no HTML, para a política de segurança bloquear scripts injetados)
+    document.getElementById('btnLogin').addEventListener('click', () => window.fazerLogin());
+    document.getElementById('btnSair').addEventListener('click', () => window.sair());
+    document.getElementById('category').addEventListener('change', () => window.alternarPaineis());
+    document.getElementById('sendBtn').addEventListener('click', () => window.sendFile());
+    document.getElementById('btnAdicionarExame').addEventListener('click', () => window.adicionarExameManual());
+    document.getElementById('btnCancelarConferencia').addEventListener('click', () => window.cancelarConferencia());
+
     // Suporte a "Enter" no login
     document.getElementById('passLogin')?.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') window.fazerLogin();
     });
 });
+
+// ---------------------------------------------------------------------------
+// Conferência dos valores lidos
+//
+// Nada do que a leitura automática encontra vai direto para o paciente:
+// o laboratório vê cada valor ao lado da linha original do PDF e confirma.
+// ---------------------------------------------------------------------------
+
+const TAMANHO_MAXIMO_PDF = 10 * 1024 * 1024; // mesmo limite da API
+
+const CAMPOS_MANUAIS = [
+    { id: 'valHemo', nome: 'Hemoglobina', uni: 'g/dL', ref: '12 - 17' },
+    { id: 'valLeuco', nome: 'Leucócitos', uni: '/mm³', ref: '4000 - 11000' },
+    { id: 'valGlico', nome: 'Glicose', uni: 'mg/dL', ref: '70 - 99' },
+    { id: 'valPota', nome: 'Potássio', uni: 'mEq/L', ref: '3.5 - 5.1' },
+];
+
+let emConferencia = false;
+
+function criar(tag, atributos = {}, texto = '') {
+    const el = document.createElement(tag);
+    Object.entries(atributos).forEach(([chave, valor]) => el.setAttribute(chave, valor));
+    if (texto) el.textContent = texto;
+    return el;
+}
+
+function rotuloBotao() {
+    const btn = document.getElementById('sendBtn');
+    const lab = document.getElementById('category').value === 'Laboratoriais';
+    if (emConferencia) {
+        btn.innerHTML = '<i class="ph ph-check-circle"></i> Confirmar e enviar';
+    } else if (lab) {
+        btn.innerHTML = '<i class="ph ph-magnifying-glass"></i> Ler PDF e conferir';
+    } else {
+        btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Enviar e Processar';
+    }
+}
+
+function adicionarLinhaConferencia(dado) {
+    const tr = criar('tr');
+    if (dado.suspeito) tr.classList.add('linha-suspeita');
+
+    const incluir = criar('input', { type: 'checkbox', 'aria-label': 'Incluir este exame' });
+    incluir.checked = true;
+    incluir.className = 'conf-incluir';
+    tr.appendChild(criar('td')).appendChild(incluir);
+
+    const tdNome = tr.appendChild(criar('td'));
+    if (dado.novo) {
+        tdNome.appendChild(criar('input', { type: 'text', class: 'conf-nome', placeholder: 'Nome do exame', maxlength: '60' }));
+    } else {
+        const nome = criar('span', { class: 'conf-nome' }, dado.nome);
+        nome.dataset.nome = dado.nome;
+        tdNome.appendChild(nome);
+    }
+
+    const tdValor = tr.appendChild(criar('td'));
+    const valor = criar('input', { type: 'number', step: 'any', class: 'conf-valor', 'aria-label': 'Valor' });
+    valor.value = dado.valor ?? '';
+    tdValor.appendChild(valor);
+
+    const tdUni = tr.appendChild(criar('td'));
+    if (dado.novo) {
+        tdUni.appendChild(criar('input', { type: 'text', class: 'conf-uni', placeholder: 'Unidade', maxlength: '15' }));
+    } else {
+        const uni = criar('span', { class: 'conf-uni' }, dado.uni || '');
+        tdUni.appendChild(uni);
+    }
+
+    const tdOrigem = tr.appendChild(criar('td', { class: 'conf-origem' }));
+    tdOrigem.dataset.ref = dado.ref || '';
+    if (dado.origem === 'digitado') {
+        tdOrigem.appendChild(criar('span', { class: 'selo selo-manual' }, 'Digitado por você'));
+    } else if (dado.novo) {
+        tdOrigem.appendChild(criar('span', { class: 'selo selo-manual' }, 'Adicionado por você'));
+    } else {
+        tdOrigem.appendChild(criar('code', {}, dado.linha || ''));
+        if (dado.suspeito) {
+            tdOrigem.appendChild(criar('span', { class: 'selo selo-alerta' }, 'Valor fora do esperado. Confira no laudo.'));
+        }
+    }
+
+    document.getElementById('corpoConferencia').appendChild(tr);
+}
+
+function mostrarConferencia(dados, aviso) {
+    const corpo = document.getElementById('corpoConferencia');
+    corpo.replaceChildren();
+    dados.forEach(adicionarLinhaConferencia);
+
+    const avisoEl = document.getElementById('avisoConferencia');
+    avisoEl.textContent = aviso || '';
+    avisoEl.style.display = aviso ? 'block' : 'none';
+
+    document.getElementById('boxConferencia').style.display = 'block';
+    emConferencia = true;
+    rotuloBotao();
+}
+
+window.adicionarExameManual = function () {
+    adicionarLinhaConferencia({ novo: true });
+};
+
+window.cancelarConferencia = function () {
+    const box = document.getElementById('boxConferencia');
+    if (!box) return;
+    box.style.display = 'none';
+    document.getElementById('corpoConferencia').replaceChildren();
+    emConferencia = false;
+    rotuloBotao();
+};
+
+// Lê a tabela de conferência. Devolve { dados } ou { erro }.
+function coletarConferencia() {
+    const dados = [];
+    for (const tr of document.querySelectorAll('#corpoConferencia tr')) {
+        if (!tr.querySelector('.conf-incluir').checked) continue;
+
+        const nomeEl = tr.querySelector('.conf-nome');
+        const uniEl = tr.querySelector('.conf-uni');
+        const nome = (nomeEl.dataset.nome || nomeEl.value || '').trim();
+        const uni = (uniEl.value ?? uniEl.textContent ?? '').trim();
+        const bruto = tr.querySelector('.conf-valor').value.trim();
+        const valor = Number(bruto);
+
+        if (!nome && !bruto) continue; // linha nova deixada em branco
+        if (!nome) return { erro: 'Há um exame sem nome na conferência.' };
+        if (!bruto || !Number.isFinite(valor)) return { erro: `Informe um valor numérico para "${nome}" ou desmarque o exame.` };
+
+        dados.push({ nome, valor, uni, ref: tr.querySelector('.conf-origem').dataset.ref || '' });
+    }
+    return { dados };
+}
+
+async function lerPdfNoServidor(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const resposta = await fetch('/api/process-pdf', { method: 'POST', body: formData });
+    if (!resposta.ok) {
+        let detalhe = '';
+        try { detalhe = (await resposta.json()).detail || ''; } catch { /* resposta sem JSON */ }
+        throw new Error(detalhe || `Não foi possível ler o PDF (erro ${resposta.status}).`);
+    }
+    return resposta.json();
+}
+
+async function salvarExame({ patientId, category, file, payloadJSON }) {
+    showStatus('Salvando documento de forma segura...', 'loading');
+
+    const nomeLimpo = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9.]/g, '_');
+    const fileName = `${Date.now()}_${nomeLimpo}`;
+
+    const { error: uploadError } = await supabaseClient.storage.from('laudos').upload(fileName, file);
+    if (uploadError) throw new Error('Erro ao fazer upload: ' + uploadError.message);
+
+    const { data: urlData } = supabaseClient.storage.from('laudos').getPublicUrl(fileName);
+
+    const { error: dbError } = await supabaseClient
+        .from('exames')
+        .insert([{
+            paciente_id: patientId,
+            url_laudo: urlData.publicUrl,
+            categoria: category,
+            nome_arquivo: file.name,
+            dados_estruturados: payloadJSON
+        }]);
+    if (dbError) throw dbError;
+}
+
+function limparFormulario() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('fileNameDisplay').textContent = 'Clique para anexar PDF';
+    document.getElementById('patientId').value = '';
+    document.querySelectorAll('.json-item input').forEach(i => i.value = '');
+    if (document.getElementById('pacsLink')) document.getElementById('pacsLink').value = '';
+    window.cancelarConferencia();
+}
 
 // Fluxo principal de envio
 window.sendFile = async function () {
@@ -140,9 +330,22 @@ window.sendFile = async function () {
     let patientId = document.getElementById('patientId').value.trim();
     const category = document.getElementById('category').value;
     const file = document.getElementById('fileInput').files[0];
+    const pacsUrl = document.getElementById('pacsLink') ? document.getElementById('pacsLink').value.trim() : '';
 
     if (!file) {
         showStatus('Anexe o laudo PDF.', 'error');
+        return;
+    }
+    if (file.size > TAMANHO_MAXIMO_PDF) {
+        showStatus('O PDF passa do limite de 10 MB.', 'error');
+        return;
+    }
+    if (patientId && !/^\d{5,10}$/.test(patientId)) {
+        showStatus('O ID do paciente deve ter só números (5 a 10 dígitos).', 'error');
+        return;
+    }
+    if (pacsUrl && !/^https:\/\//i.test(pacsUrl)) {
+        showStatus('O link do PACS precisa começar com https://', 'error');
         return;
     }
     if (!supabaseClient) {
@@ -155,153 +358,93 @@ window.sendFile = async function () {
     clearStatus();
 
     try {
-        let payloadJSON = [];
-        let usouIA = false;
-        let requiresIA = false;
+        // ----- Exames laboratoriais: passo 2, o laboratório já conferiu -----
+        if (category === 'Laboratoriais' && emConferencia) {
+            if (!patientId) throw new Error('Digite o ID do paciente.');
+            const { dados, erro } = coletarConferencia();
+            if (erro) throw new Error(erro);
 
-        // Captura de valores preenchidos manualmente
-        const valHemo = document.getElementById('valHemo') ? document.getElementById('valHemo').value : '';
-        const valLeuco = document.getElementById('valLeuco') ? document.getElementById('valLeuco').value : '';
-        const valGlico = document.getElementById('valGlico') ? document.getElementById('valGlico').value : '';
-        const valPota = document.getElementById('valPota') ? document.getElementById('valPota').value : '';
-        const inputsPreenchidos = valHemo || valLeuco || valGlico || valPota;
-        const pacsUrl = document.getElementById('pacsLink') ? document.getElementById('pacsLink').value.trim() : '';
+            await salvarExame({ patientId, category, file, payloadJSON: dados });
+            showStatus(`Transmitido com sucesso (${dados.length} ${dados.length === 1 ? 'valor conferido' : 'valores conferidos'}).`, 'success');
+            limparFormulario();
+            setTimeout(() => clearStatus(), 5000);
+            return;
+        }
 
-        // Condições para acionar o motor de inteligência artificial
-        if (!patientId) requiresIA = true;
-        if (category === 'Laboratoriais' && !inputsPreenchidos) requiresIA = true;
-        if (category === 'Imagem' && !pacsUrl) requiresIA = true;
-
-        if (requiresIA) {
-            usouIA = true;
-            showStatus('Lendo e extraindo dados do PDF...', 'ai');
-            
+        // ----- Leitura do PDF no servidor (quando falta alguma informação) -----
+        let extraido = null;
+        let falhaLeitura = '';
+        const precisaLer = category === 'Laboratoriais' || !patientId || (category === 'Imagem' && !pacsUrl);
+        if (precisaLer) {
+            showStatus('Lendo o PDF...', 'ai');
             try {
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                const apiResponse = await fetch('/api/process-pdf', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (!apiResponse.ok) {
-                    throw new Error("Erro na comunicação com o servidor de IA (Status " + apiResponse.status + ")");
-                }
-                
-                const extractedData = await apiResponse.json();
-
-                // 1. Preencher ID do Paciente automaticamente
-                if (!patientId && extractedData.patientId) {
-                    patientId = extractedData.patientId;
-                    document.getElementById('patientId').value = patientId; // Mostra na tela pro usuário
-                }
-
-                const unidades = {
-                    "Hemoglobina": "g/dL", "Hematócrito": "%", "Leucócitos": "/mm³", "Linfócitos": "/mm³", "Plaquetas": "/mm³",
-                    "Glicose": "mg/dL", "Potássio": "mEq/L", "Sódio": "mEq/L", "Creatinina": "mg/dL", "Ureia": "mg/dL",
-                    "Colesterol Total": "mg/dL", "Colesterol HDL": "mg/dL", "Colesterol LDL": "mg/dL", "Triglicerídeos": "mg/dL",
-                    "Ácido Úrico": "mg/dL", "TSH": "µUI/mL", "T4 Livre": "ng/dL"
-                };
-
-                // 2. Extrair Dados Clínicos e Credenciais
-                if (extractedData.dadosClinicos) {
-                    extractedData.dadosClinicos.forEach(dado => {
-                        if (category === 'Laboratoriais' && (dado.tipo === 'lab' || dado.nome !== 'Acesso PACS')) {
-                            payloadJSON.push({
-                                nome: dado.nome,
-                                valor: typeof dado.valor === 'string' ? parseFloat(dado.valor) : dado.valor,
-                                uni: dado.uni || unidades[dado.nome] || "",
-                                ref: ""
-                            });
-                        } else if (category === 'Imagem' && dado.tipo === 'pacs') {
-                            payloadJSON.push({
-                                tipo: 'pacs',
-                                usuario: dado.usuario || "",
-                                senha: dado.senha || "",
-                                url: dado.url || pacsUrl || ""
-                            });
-                        }
-                    });
-                }
-                
-                if (category === 'Laboratoriais' && payloadJSON.length === 0) {
-                     console.warn("Nenhum dado numérico identificado no PDF.");
-                }
+                extraido = await lerPdfNoServidor(file);
             } catch (apiError) {
-                console.error("Falha ao extrair dados:", apiError);
-                if (!patientId) {
-                    throw new Error("A IA falhou e não foi possível identificar o ID do paciente automaticamente. Preencha-o manualmente.");
-                } else {
-                    showStatus("Aviso: Falha na IA. Enviando documento sem extração.", "loading");
-                    await new Promise(r => setTimeout(r, 2000));
-                }
+                console.error('Falha ao extrair dados:', apiError);
+                falhaLeitura = apiError.message;
             }
         }
 
-        // Validação vital: sem o patientId, o banco de dados recusa a inserção.
+        if (!patientId && extraido && extraido.patientId) {
+            patientId = extraido.patientId;
+            document.getElementById('patientId').value = patientId; // mostra na tela para conferência
+        }
+
+        // ----- Exames laboratoriais: passo 1, mostrar para conferência -----
+        if (category === 'Laboratoriais') {
+            const lidos = ((extraido && extraido.dadosClinicos) || []).filter(d => d.tipo === 'lab');
+            const linhas = [];
+
+            // O que foi digitado à mão sempre vale mais do que a leitura automática.
+            const digitados = new Set();
+            CAMPOS_MANUAIS.forEach(campo => {
+                const valor = document.getElementById(campo.id).value.trim();
+                if (valor) {
+                    digitados.add(campo.nome);
+                    linhas.push({ nome: campo.nome, valor, uni: campo.uni, ref: campo.ref, origem: 'digitado' });
+                }
+            });
+            lidos.filter(d => !digitados.has(d.nome)).forEach(d => linhas.push(d));
+
+            let aviso = '';
+            if (falhaLeitura) aviso = `A leitura automática falhou (${falhaLeitura}). Adicione os valores à mão.`;
+            else if (extraido && extraido.semTexto) aviso = 'Este PDF é uma imagem escaneada, sem texto para ler. Adicione os valores à mão.';
+            else if (lidos.length === 0) aviso = 'Nenhum exame conhecido foi encontrado neste PDF. Adicione os valores à mão, se quiser.';
+            else if (lidos.some(d => d.suspeito)) aviso = 'Há valores fora do esperado, marcados em amarelo. Confira no laudo.';
+
+            mostrarConferencia(linhas, aviso);
+            clearStatus();
+            if (!patientId) showStatus('Não achei o ID do paciente no PDF. Digite antes de confirmar.', 'error');
+            document.getElementById('boxConferencia').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+
+        // ----- Demais categorias -----
         if (!patientId) {
-            throw new Error("Não foi possível encontrar a numeração de 'ID do Paciente' no PDF. Por favor, digite manualmente.");
+            throw new Error(falhaLeitura
+                ? 'Não foi possível ler o PDF para achar o ID do paciente. Digite manualmente.'
+                : "Não foi possível encontrar o 'ID do Paciente' no PDF. Digite manualmente.");
         }
 
-        // Fallbacks (se o usuário preencheu e a IA não usou/não encontrou)
-        if (category === 'Laboratoriais' && inputsPreenchidos && payloadJSON.length === 0) {
-            const addDado = (val, nome, uni, ref) => {
-                if (val) payloadJSON.push({ nome, valor: parseFloat(val), uni, ref });
-            };
-            addDado(valHemo, 'Hemoglobina', 'g/dL', '12 - 17');
-            addDado(valLeuco, 'Leucócitos', '/mm³', '4000 - 11000');
-            addDado(valGlico, 'Glicose', 'mg/dL', '70 - 99');
-            addDado(valPota, 'Potássio', 'mEq/L', '3.5 - 5.1');
-        } else if (category === 'Imagem' && pacsUrl && payloadJSON.length === 0) {
-            payloadJSON = [{ tipo: 'pacs', url: pacsUrl }];
+        let payloadJSON = [];
+        if (category === 'Imagem') {
+            const pacs = ((extraido && extraido.dadosClinicos) || []).find(d => d.tipo === 'pacs');
+            if (pacsUrl) {
+                payloadJSON = [{ tipo: 'pacs', url: pacsUrl }];
+            } else if (pacs) {
+                payloadJSON = [{ tipo: 'pacs', usuario: pacs.usuario || '', senha: pacs.senha || '', url: pacs.url || '' }];
+            }
         }
 
-        showStatus('Salvando documento de forma segura...', 'loading');
-        
-        const nomeLimpo = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9.]/g, '_');
-        const fileName = `${Date.now()}_${nomeLimpo}`;
-        
-        // Upload do arquivo
-        const { error: uploadError } = await supabaseClient.storage.from('laudos').upload(fileName, file);
-        if (uploadError) throw new Error("Erro ao fazer upload: " + uploadError.message);
-        
-        const { data: urlData } = supabaseClient.storage.from('laudos').getPublicUrl(fileName);
-
-        // Salvar no banco de dados
-        const { error: dbError } = await supabaseClient
-            .from('exames')
-            .insert([{
-                paciente_id: patientId,
-                url_laudo: urlData.publicUrl,
-                categoria: category,
-                nome_arquivo: file.name,
-                dados_estruturados: payloadJSON
-            }]);
-
-        if (dbError) throw dbError;
-
-        // Sucesso
-        const successMsg = usouIA 
-            ? 'Transmitido e processado pelo servidor com sucesso!' 
-            : 'Transmitido com sucesso!';
-        showStatus(successMsg, 'success');
-
-        // Limpar formulário
-        document.getElementById('fileInput').value = '';
-        document.getElementById('fileNameDisplay').textContent = 'Clique para anexar PDF';
-        document.getElementById('patientId').value = '';
-        
-        document.querySelectorAll('.json-item input').forEach(i => i.value = '');
-        if (document.getElementById('pacsLink')) document.getElementById('pacsLink').value = '';
-        
-        // Esconder mensagem de sucesso após alguns segundos
+        await salvarExame({ patientId, category, file, payloadJSON });
+        showStatus('Transmitido com sucesso!', 'success');
+        limparFormulario();
         setTimeout(() => clearStatus(), 5000);
 
     } catch (error) {
         showStatus(error.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Enviar e Processar';
+        rotuloBotao();
     }
-}
+};
