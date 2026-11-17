@@ -1,0 +1,7 @@
+# Tudo o que é preciso para desenvolver e testar localmente.
+-r portal-laboratorio/requirements.txt
+uvicorn==0.54.0
+pytest==9.2.0
+httpx==0.28.1
+ruff>=0.16,<1
+pip-audit>=2.10,<3
