@@ -9,6 +9,16 @@ Ferramentas usadas: leitura manual, `ruff` (lint + regras de segurança), `bandi
 
 Prioridade: **P0** = corrigir antes de qualquer coisa, **P1** = logo depois, **P2** = quando der.
 
+## Situação (atualizado em 17/11/2026)
+
+| Situação | Itens |
+| --- | --- |
+| Resolvido | V1 a V11, S6 (tamanho e tipo; falta limite de requisições), S7, S8, S9, S11, D2, D3, D6, D7 |
+| Resolvido em parte | S3 (a dica da senha saiu da tela; o login real depende do Supabase), S10 (a API valida; falta o bucket) |
+| Pronto para aplicar | S2, S10 (ver [SEGURANCA-BANCO.md](SEGURANCA-BANCO.md), fase 1) |
+| Depende do app do paciente | S1, S4, S5, D1 |
+| Aberto | S12, S13, D4, D5, D8, D9 |
+
 ## Segurança
 
 | ID | Prioridade | Problema | Onde |

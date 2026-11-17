@@ -26,22 +26,21 @@ Regras curtas para todo mundo trabalhar do mesmo jeito.
 
 ## 3. Rodando local
 
-API:
-
 ```
-cd portal-laboratorio
-pip install -r requirements.txt uvicorn
-uvicorn api.index:app --port 8000
+pip install -r requirements-dev.txt
+python scripts/dev.py
 ```
 
-Portal: abrir `portal-laboratorio/index.html` no navegador.
+Abra http://localhost:8000.
 
 Antes de abrir o PR:
 
 ```
-pip install ruff
 ruff check .
+pytest
 ```
+
+Mudou a leitura do PDF? Adicione um teste em `tests/test_extrator.py` com a linha do laudo que deu problema.
 
 ## 4. Prioridade
 
