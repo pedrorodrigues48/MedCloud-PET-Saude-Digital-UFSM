@@ -11,7 +11,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Servidores antigos que rodam só localmente; serão removidos (ver docs/AUDITORIA.md, D3)
-"portal-laboratorio/backend/main.py" = ["S104"]
-"medcloud-python-backend/main.py" = ["S104"]
 "tests/**" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

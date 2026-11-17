@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 .vercel/
+.pytest_cache/
+.ruff_cache/
+node_modules/

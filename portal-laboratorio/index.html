@@ -9,11 +9,9 @@
     <!-- Novo Arquivo de Estilos (Design Premium) -->
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Ícones Phosphor -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
-    <!-- SDK Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Bibliotecas locais com versão fixa (ver vendor/README.md) -->
+    <link rel="stylesheet" href="vendor/phosphor/regular-2.1.2.css">
+    <script src="vendor/supabase-2.119.0.js"></script>
 </head>
 
 <body>
@@ -42,7 +40,7 @@
             </div>
         </div>
         
-        <button onclick="window.fazerLogin()" style="margin-bottom: 32px;">
+        <button id="btnLogin" style="margin-bottom: 32px;">
             Acessar Sistema <i class="ph ph-arrow-right"></i>
         </button>
 
@@ -55,6 +53,10 @@
                 <i class="ph ph-android-logo" style="font-size: 24px; color: #10b981;"></i> 
                 Baixar App (APK)
             </a>
+            <a href="qrcode.html" class="btn-outline" style="margin-top: 12px;">
+                <i class="ph ph-qr-code" style="font-size: 24px; color: var(--brand);"></i>
+                QR code do site
+            </a>
         </div>
     </div>
 
@@ -65,7 +67,7 @@
                 <h2>Módulo de Transmissão</h2>
                 <p class="subtitle">Envio Inteligente para o Prontuário do Paciente</p>
             </div>
-            <button onclick="window.sair()" class="btn-danger">
+            <button id="btnSair" class="btn-danger">
                 <i class="ph ph-sign-out"></i> Sair
             </button>
         </div>
@@ -87,7 +89,7 @@
                     <label>Categoria Clínica</label>
                     <div class="input-wrapper">
                         <i class="ph ph-folders"></i>
-                        <select id="category" onchange="window.alternarPaineis()">
+                        <select id="category">
                             <option value="Laboratoriais">Exames Laboratoriais (Leitura Automática)</option>
                             <option value="Imagem">Exames de Imagem (PACS)</option>
                             <option value="Anatomopatológicos">Anatomopatológicos</option>
@@ -114,7 +116,7 @@
                 <div id="boxLaboratorio" class="active">
                     <h3><i class="ph ph-flask" style="color: #8b5cf6; font-size: 24px;"></i> 2. Leitura Automatizada (Laboratório)</h3>
                     <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-                        Preencha os valores críticos ou deixe em branco para o <strong>servidor</strong> extrair automaticamente do PDF.
+                        O sistema lê o PDF e mostra os valores para você <strong>conferir antes de enviar</strong>. Se preferir, digite os valores críticos aqui: o que você digitar vale mais que a leitura.
                     </p>
                     
                     <div class="json-panel">
@@ -166,10 +168,41 @@
                 </div>
 
                 <!-- Botão de Envio e Status -->
-                <button id="sendBtn" onclick="window.sendFile()">
+                <button id="sendBtn">
                     <i class="ph ph-paper-plane-tilt"></i> Enviar e Processar
                 </button>
                 <div id="statusMessage" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Conferência dos valores lidos (só para exames laboratoriais) -->
+        <div id="boxConferencia" class="box" style="display: none;">
+            <h3><i class="ph ph-list-checks" style="color: #10b981; font-size: 24px;"></i> 3. Confira antes de enviar</h3>
+            <p class="conf-ajuda">
+                Compare cada valor com a linha original do laudo. Corrija o que estiver errado e desmarque o que não deve ir para o paciente.
+            </p>
+            <p id="avisoConferencia" class="conf-aviso" style="display: none;"></p>
+            <div class="conf-rolagem">
+                <table class="conf-tabela">
+                    <thead>
+                        <tr>
+                            <th>Enviar</th>
+                            <th>Exame</th>
+                            <th>Valor</th>
+                            <th>Unidade</th>
+                            <th>Linha original do laudo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoConferencia"></tbody>
+                </table>
+            </div>
+            <div class="conf-acoes">
+                <button type="button" id="btnAdicionarExame" class="btn-secundario">
+                    <i class="ph ph-plus"></i> Adicionar exame
+                </button>
+                <button type="button" id="btnCancelarConferencia" class="btn-secundario">
+                    <i class="ph ph-x"></i> Cancelar conferência
+                </button>
             </div>
         </div>
     </div>

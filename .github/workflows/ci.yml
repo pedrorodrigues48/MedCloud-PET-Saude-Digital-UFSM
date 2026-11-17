@@ -7,27 +7,35 @@ on:
 
 jobs:
   python:
-    name: Qualidade e segurança (Python)
+    name: Testes, qualidade e segurança (Python)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Instalar ferramentas
-        run: pip install ruff pip-audit
+          python-version: "3.12"
+      - name: Instalar dependências
+        run: pip install -r requirements-dev.txt
       - name: Lint (ruff)
         run: ruff check .
+      - name: Testes (pytest)
+        run: pytest -q
       - name: Vulnerabilidades nas dependências (pip-audit)
         run: pip-audit -r portal-laboratorio/requirements.txt
-      - name: Testes (pytest)
+
+  javascript:
+    name: Sintaxe do portal (JavaScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verificar sintaxe
         run: |
-          if [ -d tests ]; then
-            pip install -r portal-laboratorio/requirements.txt pytest httpx
-            pytest -q
-          else
-            echo "Ainda não há testes (pasta tests/)."
-          fi
+          for arquivo in portal-laboratorio/*.js; do
+            node --check "$arquivo"
+          done
 
   segredos:
     name: Procurar segredos vazados
