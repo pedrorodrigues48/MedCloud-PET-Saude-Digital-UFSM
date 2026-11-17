@@ -1,0 +1,17 @@
+# Configuração das ferramentas de qualidade do código Python.
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/F = erros básicos, B = bugs comuns, S = segurança (bandit)
+select = ["E", "F", "B", "S"]
+ignore = [
+    "E501", # linhas longas (o dicionário de regex tem linhas grandes)
+    "B008", # File(...) como valor padrão é o padrão do FastAPI
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Servidores antigos que rodam só localmente; serão removidos (ver docs/AUDITORIA.md, D3)
+"portal-laboratorio/backend/main.py" = ["S104"]
+"medcloud-python-backend/main.py" = ["S104"]
+"tests/**" = ["S101"]

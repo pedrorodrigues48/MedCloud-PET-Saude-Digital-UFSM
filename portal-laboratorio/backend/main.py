@@ -2,7 +2,6 @@ import fitz
 import re
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import io
 
 app = FastAPI()
 
